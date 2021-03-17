@@ -1,0 +1,83 @@
+#  - name: image
+#    displayName: Pool Image
+#    type: string
+#    default: ubuntu-latest
+#    values:
+#    - windows-latest
+#    - heuro-flyway-agents
+#  - name: branch
+#    displayName: BranchName
+#    type: string
+#    default: develop
+#    values:
+#    - develop
+#    - release
+#    - master
+#  - name: environment
+#    displayName: "Deploy Environment"
+#    type: string
+#    default: dev
+#    values:
+#    - dev
+#    - uat
+#    - prod
+variables:
+  uat-master-db: "MyDatabaseName"
+  uat-master-db-server: "MyDataBaseServer"
+  vmImage: "heuro-flyway-agents"
+  branch: develop
+
+trigger:
+ branches:
+    include:
+      - develop
+      #- ${{ parameters.branch }}
+ paths:
+   include:
+     - sql/*
+pool:
+  name: $(vmImage)
+  demands: Cmd
+
+stages:
+- stage: Build
+  jobs:
+  - job: DevBuild
+    pool: $(vmImage)
+    continueOnError: true
+    steps:
+    - task: DeleteFiles@1
+      inputs:
+        SourceFolder: 'C:\flyway\flyway-7.3.1\sql'
+        Contents: '*.sql'
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: 'sql'
+        Contents: '*.sql'
+        TargetFolder: 'C:\flyway\flyway-7.3.1\sql'
+
+#- stage: Deploy
+#  jobs:
+##  - job: GetPreReqs
+#    steps:
+#    - task: AzureKeyVault@1
+##      inputs:
+#        azureSubscription: 'dev-devops-sp'
+#        KeyVaultName: 'heuro-dev-ops-kv'
+#        SecretsFilter: '*'
+#        RunAsPreJob: true
+
+  - deployment: DeployDev
+    dependsOn: "DevBuild"
+    pool: $(vmImage)
+    # creates Develop environment if it doesn’t exist
+    environment: 'MyDatabaseName-db-dev'
+    strategy:
+      # default deployment strategy
+      runOnce:
+        deploy:
+          steps:
+          - script: |
+              db-deploy-all.bat devheuromdsa MyDatabaseName test dev-database-db
+            displayName: MyDatabaseName-db-deploy
+            workingDirectory: 'C:\flyway\flyway-7.3.1'

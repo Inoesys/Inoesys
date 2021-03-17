@@ -1,0 +1,25 @@
+
+DROP PROCEDURE IF EXISTS usp_validatetoken
+GO
+
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[usp_validatetoken](
+@UserId NVARCHAR(MAX),
+@Token NVARCHAR(MAX),
+@TokenTypeId INT
+)
+AS
+BEGIN
+IF EXISTS(
+SELECT * FROM Token WHERE UserId=dbo.DecryptUserId(@UserId) AND TokenHash=@Token AND TokenTypeId = @TokenTypeId AND GETDATE()<=ExpirationDate AND TokenUsed=0)
+BEGIN
+SELECT 1
+END
+ELSE
+BEGIN 
+SELECT 0
+END
+END
